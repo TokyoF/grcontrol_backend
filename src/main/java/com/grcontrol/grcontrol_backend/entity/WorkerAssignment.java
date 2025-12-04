@@ -2,8 +2,11 @@ package com.grcontrol.grcontrol_backend.entity;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
-import lombok.Data;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
+import lombok.EqualsAndHashCode;
+import lombok.ToString;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
@@ -21,13 +24,17 @@ import java.time.LocalDateTime;
         @Index(name = "idx_island_schedule", columnList = "island_id, shift_schedule_id, day_of_week")
     }
 )
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
+@ToString(exclude = {"worker", "island", "shiftSchedule", "createdBy"})
 public class WorkerAssignment {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @EqualsAndHashCode.Include
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)

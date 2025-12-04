@@ -2,13 +2,19 @@ package com.grcontrol.grcontrol_backend.service;
 
 import com.grcontrol.grcontrol_backend.dto.IslandDTO;
 import com.grcontrol.grcontrol_backend.entity.Island;
+import com.grcontrol.grcontrol_backend.entity.FuelPriceHistory;
 import com.grcontrol.grcontrol_backend.entity.Station;
 import com.grcontrol.grcontrol_backend.repository.IslandRepository;
 import com.grcontrol.grcontrol_backend.repository.StationRepository;
+import com.grcontrol.grcontrol_backend.repository.FuelPriceHistoryRepository;
+import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -17,10 +23,13 @@ import java.util.stream.Collectors;
  */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class IslandService {
 
     private final IslandRepository islandRepository;
     private final StationRepository stationRepository;
+    private final FuelPriceHistoryRepository fuelPriceHistoryRepository;
+    private final EntityManager entityManager;
 
     // ==================== CRUD OPERATIONS ====================
 
@@ -59,6 +68,9 @@ public class IslandService {
 
     @Transactional(readOnly = true)
     public IslandDTO.IslandDetailResponse getIslandDetail(Long id) {
+        // Limpiar el caché de EntityManager para obtener datos frescos
+        entityManager.clear();
+        
         Island island = islandRepository.findByIdWithPumpsAndNozzles(id)
             .orElseThrow(() -> new IllegalArgumentException("Island not found with id: " + id));
 
@@ -67,9 +79,36 @@ public class IslandService {
 
     @Transactional(readOnly = true)
     public List<IslandDTO.IslandResponse> getIslandsByStation(Long stationId) {
-        return islandRepository.findAllByStationIdWithPumps(stationId).stream()
-            .map(this::toIslandResponse)
+        log.info("Buscando islas para estación ID: {}", stationId);
+        
+        // Verificar que la estación existe
+        if (!stationRepository.existsById(stationId)) {
+            log.warn("Estación no encontrada con ID: {}", stationId);
+            return List.of();
+        }
+        
+        List<Island> islands = islandRepository.findAllByStationIdWithPumps(stationId);
+        log.info("Encontradas {} islas", islands.size());
+        
+        // Mapear a DTO dentro de la transacción para evitar LazyInitializationException
+        List<IslandDTO.IslandResponse> responses = islands.stream()
+            .map(island -> {
+                try {
+                    // Forzar inicialización de la relación station
+                    Station station = island.getStation();
+                    if (station != null) {
+                        station.getName(); // Forzar carga del proxy
+                    }
+                    return toIslandResponse(island);
+                } catch (Exception e) {
+                    log.error("Error mapeando isla ID {}: {}", island.getId(), e.getMessage(), e);
+                    throw new RuntimeException("Error mapping island " + island.getId(), e);
+                }
+            })
             .collect(Collectors.toList());
+        
+        log.info("Mapeadas {} islas a DTOs exitosamente", responses.size());
+        return responses;
     }
 
     @Transactional(readOnly = true)
@@ -144,21 +183,36 @@ public class IslandService {
     // ==================== HELPERS ====================
 
     private IslandDTO.IslandResponse toIslandResponse(Island island) {
-        return new IslandDTO.IslandResponse(
-            island.getId(),
-            island.getStation().getId(),
-            island.getStation().getName(),
-            island.getName(),
-            island.getDescription(),
-            island.getStatus().name(),
-            island.getPosition(),
-            island.getPumps() != null ? island.getPumps().size() : 0,
-            island.getCreatedAt(),
-            island.getUpdatedAt()
-        );
+        try {
+            log.debug("Convirtiendo isla a DTO: ID={}", island.getId());
+            
+            Station station = island.getStation();
+            if (station == null) {
+                log.error("Station is NULL for Island ID: {}", island.getId());
+                throw new IllegalStateException("Island " + island.getId() + " has no associated station");
+            }
+            
+            return new IslandDTO.IslandResponse(
+                island.getId(),
+                station.getId(),
+                station.getName(),
+                island.getName(),
+                island.getDescription(),
+                island.getStatus().name(),
+                island.getPosition(),
+                island.getPumps() != null ? island.getPumps().size() : 0,
+                island.getCreatedAt(),
+                island.getUpdatedAt()
+            );
+        } catch (Exception e) {
+            log.error("Error convirtiendo isla ID {} a DTO: {}", island.getId(), e.getMessage(), e);
+            throw e;
+        }
     }
 
     private IslandDTO.IslandDetailResponse toIslandDetailResponse(Island island) {
+        Long stationId = island.getStation().getId();
+        
         List<IslandDTO.PumpWithNozzles> pumps = island.getPumps() != null
             ? island.getPumps().stream()
                 .map(pump -> new IslandDTO.PumpWithNozzles(
@@ -170,17 +224,34 @@ public class IslandService {
                     pump.getActive(),
                     pump.getNozzles() != null
                         ? pump.getNozzles().stream()
-                            .map(nozzle -> new IslandDTO.NozzleSummary(
-                                nozzle.getId(),
-                                nozzle.getSide().name(),
-                                nozzle.getPosition(),
-                                nozzle.getFuelType().name(),
-                                nozzle.getPricePerGallon() != null
-                                    ? nozzle.getPricePerGallon().doubleValue()
-                                    : null,
-                                nozzle.getColor(),
-                                nozzle.getActive()
-                            ))
+                            .map(nozzle -> {
+                                // Obtener precio dinámicamente desde FuelPriceHistory
+                                Double price = null;
+                                try {
+                                    FuelPriceHistory.FuelType fuelType = FuelPriceHistory.FuelType.valueOf(
+                                        nozzle.getFuelType().name()
+                                    );
+                                    BigDecimal pricePerGallon = fuelPriceHistoryRepository
+                                        .findCurrentPrice(stationId, fuelType)
+                                        .map(FuelPriceHistory::getPricePerGallon)
+                                        .orElse(null);
+                                    price = pricePerGallon != null ? pricePerGallon.doubleValue() : null;
+                                } catch (Exception e) {
+                                    log.warn("Error getting price for fuel type {}: {}", 
+                                        nozzle.getFuelType(), e.getMessage());
+                                }
+                                
+                                return new IslandDTO.NozzleSummary(
+                                    nozzle.getId(),
+                                    nozzle.getSide().name(),
+                                    nozzle.getPosition(),
+                                    nozzle.getFuelType().name(),
+                                    nozzle.getFuelName(),
+                                    price, // Precio dinámico desde FuelPriceHistory
+                                    nozzle.getColor(),
+                                    nozzle.getActive()
+                                );
+                            })
                             .collect(Collectors.toList())
                         : List.of()
                 ))

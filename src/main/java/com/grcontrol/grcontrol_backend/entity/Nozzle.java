@@ -2,25 +2,33 @@ package com.grcontrol.grcontrol_backend.entity;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
-import lombok.Data;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
+import lombok.EqualsAndHashCode;
+import lombok.ToString;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
  * Entidad Nozzle - Representa una manguera de combustible en un surtidor
- * Cada manguera tiene un tipo de combustible, lado (izquierdo/derecho), y precio
+ * Cada manguera tiene un tipo de combustible, lado (izquierdo/derecho)
+ * El precio se obtiene dinámicamente desde FuelPriceHistory según el tipo de combustible
  */
 @Entity
 @Table(name = "nozzles")
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
+@ToString(exclude = "pump")
 public class Nozzle {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @EqualsAndHashCode.Include
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -44,8 +52,11 @@ public class Nozzle {
     @Column(length = 50)
     private String color; // Color de la manguera (Rojo, Verde, Azul, etc.)
 
+    // DEPRECATED: El precio ahora se maneja en FuelPriceHistory
+    // Mantener el campo para compatibilidad con datos legacy
     @Column(name = "price_per_gallon", precision = 10, scale = 3)
-    private BigDecimal pricePerGallon; // Precio actual por galón
+    @Deprecated
+    private BigDecimal pricePerGallon;
 
     @Enumerated(EnumType.STRING)
     @Column(length = 20)

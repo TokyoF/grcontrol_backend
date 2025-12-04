@@ -42,8 +42,12 @@ public class NozzleService {
         Nozzle.FuelType fuelType = Nozzle.FuelType.valueOf(request.fuelType());
 
         if (nozzleRepository.existsByPumpIdAndSideAndFuelType(request.pumpId(), side, fuelType)) {
-            throw new IllegalArgumentException("Nozzle with side " + request.side() +
-                " and fuel type " + request.fuelType() + " already exists in this pump");
+            String sideText = side == Nozzle.PumpSide.LEFT ? "izquierdo" : "derecho";
+            throw new IllegalArgumentException(
+                String.format("Ya existe una manguera de %s en el lado %s de este surtidor. " +
+                    "Por favor, elija otro lado o cambie el tipo de combustible.",
+                    request.fuelType(), sideText)
+            );
         }
 
         Nozzle nozzle = new Nozzle();
@@ -51,9 +55,8 @@ public class NozzleService {
         nozzle.setSide(side);
         nozzle.setPosition(request.position());
         nozzle.setFuelType(fuelType);
-        nozzle.setPricePerGallon(request.pricePerGallon() != null
-            ? BigDecimal.valueOf(request.pricePerGallon())
-            : null);
+        nozzle.setFuelName(request.fuelName()); // Nombre personalizado del combustible
+        // No establecer precio aquí - se obtiene dinámicamente de FuelPriceHistory
         nozzle.setColor(request.color());
         nozzle.setActive(request.isActive() != null ? request.isActive() : true);
 
@@ -107,9 +110,8 @@ public class NozzleService {
         nozzle.setSide(Nozzle.PumpSide.valueOf(request.side()));
         nozzle.setPosition(request.position());
         nozzle.setFuelType(Nozzle.FuelType.valueOf(request.fuelType()));
-        if (request.pricePerGallon() != null) {
-            nozzle.setPricePerGallon(BigDecimal.valueOf(request.pricePerGallon()));
-        }
+        nozzle.setFuelName(request.fuelName());
+        // No actualizar precio aquí - se maneja en FuelPriceHistory
         nozzle.setColor(request.color());
         if (request.isActive() != null) {
             nozzle.setActive(request.isActive());
@@ -286,6 +288,7 @@ public class NozzleService {
             nozzle.getSide().name(),
             nozzle.getPosition(),
             nozzle.getFuelType().name(),
+            nozzle.getFuelName(),
             nozzle.getPricePerGallon() != null ? nozzle.getPricePerGallon().doubleValue() : null,
             nozzle.getColor(),
             nozzle.getActive(),
@@ -306,6 +309,7 @@ public class NozzleService {
             nozzle.getSide().name(),
             nozzle.getPosition(),
             nozzle.getFuelType().name(),
+            nozzle.getFuelName(),
             nozzle.getPricePerGallon() != null ? nozzle.getPricePerGallon().doubleValue() : null,
             nozzle.getColor(),
             nozzle.getActive(),

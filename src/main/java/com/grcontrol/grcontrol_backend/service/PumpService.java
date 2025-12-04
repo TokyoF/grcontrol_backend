@@ -30,7 +30,6 @@ public class PumpService {
             .orElseThrow(() -> new IllegalArgumentException("Island not found with id: " + request.islandId()));
 
         Pump pump = new Pump();
-        pump.setIsland(island);
         pump.setName(request.name());
         pump.setPosition(request.position());
         pump.setBrand(request.brand());
@@ -40,7 +39,11 @@ public class PumpService {
         pump.setActive(request.isActive() != null ? request.isActive() : true);
         pump.setNotes(request.notes());
 
-        pump = pumpRepository.save(pump);
+        // Establecer relación bidireccional correctamente
+        island.addPump(pump);
+        
+        // Guardar la isla (cascadeará al pump)
+        islandRepository.save(island);
 
         return toPumpResponse(pump);
     }

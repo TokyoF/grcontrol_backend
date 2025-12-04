@@ -1,5 +1,6 @@
 package com.grcontrol.grcontrol_backend.config;
 
+import com.grcontrol.grcontrol_backend.entity.FuelPriceHistory;
 import com.grcontrol.grcontrol_backend.entity.Island;
 import com.grcontrol.grcontrol_backend.entity.Nozzle;
 import com.grcontrol.grcontrol_backend.entity.Nozzle.FuelType;
@@ -14,6 +15,7 @@ import com.grcontrol.grcontrol_backend.repository.*;
 import java.math.BigDecimal;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.HashSet;
 import java.util.Set;
@@ -37,6 +39,7 @@ public class DataLoader implements CommandLineRunner {
     private final NozzleRepository nozzleRepository;
     private final ShiftScheduleRepository shiftScheduleRepository;
     private final WorkerAssignmentRepository workerAssignmentRepository;
+    private final FuelPriceHistoryRepository fuelPriceHistoryRepository;
 
     @Override
     public void run(String... args) throws Exception {
@@ -44,6 +47,8 @@ public class DataLoader implements CommandLineRunner {
 
         createRolesIfNotExist();
         createDefaultUsers();
+        createStationAcobamba(); // Crear estación Acobamba primero
+        createInitialFuelPrices(); // Crear precios iniciales de combustibles
         createSampleInfrastructure();
         createSampleShiftSchedules();
         createSampleWorkerAssignment();
@@ -175,8 +180,111 @@ public class DataLoader implements CommandLineRunner {
         }
     }
 
+    private void createStationAcobamba() {
+        // Verificar si la estación Acobamba ya existe
+        if (stationRepository.findById(1L).isPresent()) {
+            log.info("Estación Acobamba ya existe");
+            return;
+        }
+
+        log.info("Creando estación de servicio Acobamba...");
+
+        Station station = new Station();
+        station.setName("Grifo Acobamba");
+        station.setAddress("Av. Acobamba 123, Huancayo");
+        station.setPhone("064-123456");
+        station.setActive(true);
+        stationRepository.save(station);
+
+        log.info(
+            "Estación Acobamba creada exitosamente - ID: {}",
+            station.getId()
+        );
+    }
+
+    private void createInitialFuelPrices() {
+        // Buscar la estación Acobamba
+        Station station = stationRepository.findById(1L).orElse(null);
+
+        if (station == null) {
+            log.warn("Estación Acobamba no encontrada, omitiendo creación de precios");
+            return;
+        }
+
+        // Verificar si ya tiene precios
+        if (!fuelPriceHistoryRepository.findAllCurrentPrices(1L).isEmpty()) {
+            log.info("La estación Acobamba ya tiene precios configurados");
+            return;
+        }
+
+        log.info("Creando precios iniciales de combustibles para Acobamba...");
+
+        LocalDateTime now = LocalDateTime.now();
+
+        // Crear precio para REGULAR
+        createFuelPrice(
+            station,
+            FuelPriceHistory.FuelType.REGULAR,
+            new BigDecimal("15.50"),
+            now,
+            "Precio inicial de Regular 90"
+        );
+
+        // Crear precio para PREMIUM
+        createFuelPrice(
+            station,
+            FuelPriceHistory.FuelType.PREMIUM,
+            new BigDecimal("17.80"),
+            now,
+            "Precio inicial de Premium 95"
+        );
+
+        // Crear precio para DIESEL
+        createFuelPrice(
+            station,
+            FuelPriceHistory.FuelType.DIESEL,
+            new BigDecimal("16.20"),
+            now,
+            "Precio inicial de Diesel B5"
+        );
+
+        // Crear precio para GLP (opcional)
+        createFuelPrice(
+            station,
+            FuelPriceHistory.FuelType.GLP,
+            new BigDecimal("8.50"),
+            now,
+            "Precio inicial de GLP"
+        );
+
+        log.info("Precios iniciales de combustibles creados exitosamente");
+    }
+
+    private void createFuelPrice(
+        Station station,
+        FuelPriceHistory.FuelType fuelType,
+        BigDecimal price,
+        LocalDateTime effectiveFrom,
+        String notes
+    ) {
+        FuelPriceHistory fuelPrice = new FuelPriceHistory();
+        fuelPrice.setStation(station);
+        fuelPrice.setFuelType(fuelType);
+        fuelPrice.setPricePerGallon(price);
+        fuelPrice.setEffectiveFrom(effectiveFrom);
+        fuelPrice.setEffectiveUntil(null); // Precio actual
+        fuelPrice.setNotes(notes);
+        
+        // Obtener usuario admin como quien establece el precio
+        userRepository.findByUsername("admin")
+            .ifPresent(fuelPrice::setChangedBy);
+        
+        fuelPriceHistoryRepository.save(fuelPrice);
+        log.info("Precio creado: {} - S/. {} por galón", fuelType, price);
+    }
+
     private void createSampleInfrastructure() {
-        // Buscar la estación Acobamba (debe existir desde la migración)
+        // Buscar la estación Acobamba
         Station station = stationRepository.findById(1L).orElse(null);
 
         if (station == null) {
@@ -198,6 +306,7 @@ public class DataLoader implements CommandLineRunner {
         Island island1 = new Island();
         island1.setStation(station);
         island1.setName("Isla 1");
+        island1.setDescription("la isla se encuentra al lado del rio");
         island1.setStatus(Island.IslandStatus.ACTIVE);
         island1 = islandRepository.save(island1);
         log.info("Isla creada: {}", island1.getName());
@@ -335,7 +444,7 @@ public class DataLoader implements CommandLineRunner {
         FuelType fuelType,
         PumpSide side,
         int position,
-        BigDecimal pricePerGallon
+        BigDecimal pricePerGallon  // Mantener parámetro por compatibilidad
     ) {
         Nozzle nozzle = new Nozzle();
         nozzle.setPump(pump);
@@ -343,15 +452,25 @@ public class DataLoader implements CommandLineRunner {
         nozzle.setFuelType(fuelType);
         nozzle.setSide(side);
         nozzle.setPosition(position);
-        nozzle.setPricePerGallon(pricePerGallon);
+        // No establecer precio aquí - se obtiene de FuelPriceHistory
+        // nozzle.setPricePerGallon(pricePerGallon); // DEPRECATED
+        
+        // Asignar color según tipo de combustible
+        switch (fuelType) {
+            case REGULAR -> nozzle.setColor("Rojo");
+            case PREMIUM -> nozzle.setColor("Verde");
+            case DIESEL -> nozzle.setColor("Negro");
+            case GLP -> nozzle.setColor("Azul");
+        }
+        
         nozzle.setActive(true);
         nozzleRepository.save(nozzle);
         log.info(
-            "Manguera creada: {} - {} - Lado {} - Precio: S/. {}",
+            "Manguera creada: {} - {} - Lado {} - Color: {}",
             name,
             fuelType,
             side,
-            pricePerGallon
+            nozzle.getColor()
         );
     }
 
@@ -382,22 +501,19 @@ public class DataLoader implements CommandLineRunner {
 
     private void createShiftSchedule(
         Station station,
-        String displayLabel,
+        String name,
         String startTime,
         String endTime
     ) {
         ShiftSchedule schedule = new ShiftSchedule();
         schedule.setStation(station);
-        schedule.setDisplayLabel(displayLabel);
+        schedule.setName(name); // Campo obligatorio
+        schedule.setDisplayLabel(name); // Usamos el mismo valor para displayLabel
         schedule.setStartTime(LocalTime.parse(startTime));
         schedule.setEndTime(LocalTime.parse(endTime));
+        schedule.setActive(true);
         shiftScheduleRepository.save(schedule);
-        log.info(
-            "Horario creado: {} ({} - {})",
-            displayLabel,
-            startTime,
-            endTime
-        );
+        log.info("Horario creado: {} ({} - {})", name, startTime, endTime);
     }
 
     private void createSampleWorkerAssignment() {

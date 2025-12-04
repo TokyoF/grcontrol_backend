@@ -66,13 +66,15 @@ public class IslandDTO {
 
     /**
      * Resumen de manguera
+     * El precio se obtiene dinámicamente desde FuelPriceHistory
      */
     public record NozzleSummary(
         Long id,
         String side, // LEFT, RIGHT
         Integer position,
         String fuelType,
-        Double pricePerGallon,
+        String fuelName,
+        Double pricePerGallon, // Obtenido dinámicamente
         String color,
         Boolean isActive
     ) {}

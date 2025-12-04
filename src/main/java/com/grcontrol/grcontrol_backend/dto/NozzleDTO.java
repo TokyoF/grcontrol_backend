@@ -10,19 +10,21 @@ public class NozzleDTO {
 
     /**
      * Request para crear/actualizar manguera
+     * El precio se obtiene automáticamente desde FuelPriceHistory según fuelType
      */
     public record NozzleRequest(
         Long pumpId,
         String side, // LEFT, RIGHT
         Integer position,
         String fuelType, // REGULAR, PREMIUM, DIESEL, GLP
-        Double pricePerGallon,
+        String fuelName, // "Regular 90", "Premium 95", etc. (opcional)
         String color,
         Boolean isActive
     ) {}
 
     /**
      * Response básica de manguera
+     * El precio se obtiene dinámicamente desde FuelPriceHistory
      */
     public record NozzleResponse(
         Long id,
@@ -31,7 +33,8 @@ public class NozzleDTO {
         String side,
         Integer position,
         String fuelType,
-        Double pricePerGallon,
+        String fuelName,
+        Double pricePerGallon, // Obtenido dinámicamente de FuelPriceHistory
         String color,
         Boolean isActive,
         LocalDateTime createdAt,
@@ -40,6 +43,7 @@ public class NozzleDTO {
 
     /**
      * Response detallada con información de surtidor e isla
+     * El precio se obtiene dinámicamente desde FuelPriceHistory
      */
     public record NozzleDetailResponse(
         Long id,
@@ -52,7 +56,8 @@ public class NozzleDTO {
         String side,
         Integer position,
         String fuelType,
-        Double pricePerGallon,
+        String fuelName,
+        Double pricePerGallon, // Obtenido dinámicamente de FuelPriceHistory
         String color,
         Boolean isActive,
         LocalDateTime createdAt,
@@ -61,7 +66,10 @@ public class NozzleDTO {
 
     /**
      * Request para cambiar precio
+     * DEPRECATED: Los precios ahora se manejan en FuelPriceController
+     * Use /api/fuel-prices/update en su lugar
      */
+    @Deprecated
     public record UpdatePriceRequest(
         Double newPrice,
         String reason,
@@ -88,7 +96,9 @@ public class NozzleDTO {
 
     /**
      * Request batch para actualizar múltiples precios
+     * DEPRECATED: Los precios ahora se manejan por tipo de combustible en FuelPriceController
      */
+    @Deprecated
     public record BatchUpdatePricesRequest(
         List<PriceUpdate> updates,
         String reason,
@@ -97,7 +107,9 @@ public class NozzleDTO {
 
     /**
      * Actualización de precio individual
+     * DEPRECATED
      */
+    @Deprecated
     public record PriceUpdate(
         Long nozzleId,
         Double newPrice

@@ -28,7 +28,8 @@ public interface IslandRepository extends JpaRepository<Island, Long> {
     /**
      * Buscar isla por ID con sus surtidores y mangueras precargados
      */
-    @Query("SELECT i FROM Island i " +
+    @Query("SELECT DISTINCT i FROM Island i " +
+           "LEFT JOIN FETCH i.station " +
            "LEFT JOIN FETCH i.pumps p " +
            "LEFT JOIN FETCH p.nozzles " +
            "WHERE i.id = :islandId")
@@ -38,11 +39,13 @@ public interface IslandRepository extends JpaRepository<Island, Long> {
      * Buscar islas por estación con surtidores precargados
      */
     @Query("SELECT DISTINCT i FROM Island i " +
+           "LEFT JOIN FETCH i.station " +
            "LEFT JOIN FETCH i.pumps " +
            "WHERE i.station.id = :stationId AND i.active = true")
     List<Island> findByStationIdWithPumps(@Param("stationId") Long stationId);
 
     @Query("SELECT DISTINCT i FROM Island i " +
+           "LEFT JOIN FETCH i.station " +
            "LEFT JOIN FETCH i.pumps " +
            "WHERE i.station.id = :stationId")
     List<Island> findAllByStationIdWithPumps(@Param("stationId") Long stationId);

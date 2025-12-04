@@ -27,14 +27,20 @@ public class NozzleController {
      */
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMINISTRADOR', 'GERENTE')")
-    public ResponseEntity<NozzleDTO.NozzleResponse> createNozzle(
+    public ResponseEntity<?> createNozzle(
         @RequestBody NozzleDTO.NozzleRequest request
     ) {
         try {
             var response = nozzleService.createNozzle(request);
             return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().build();
+            return ResponseEntity.badRequest().body(
+                new NozzleDTO.OperationResponse(
+                    false,
+                    e.getMessage(),
+                    null
+                )
+            );
         }
     }
 

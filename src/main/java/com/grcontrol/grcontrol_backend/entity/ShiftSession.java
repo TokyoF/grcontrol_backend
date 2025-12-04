@@ -5,8 +5,11 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.AllArgsConstructor;
-import lombok.Data;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
+import lombok.EqualsAndHashCode;
+import lombok.ToString;
 
 /**
  * Entidad Turno - Representa una sesión de trabajo de un operario
@@ -14,13 +17,17 @@ import lombok.NoArgsConstructor;
  */
 @Entity
 @Table(name = "shift_sessions")
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
+@ToString(exclude = {"operator", "station", "shiftSchedule", "assignment", "readings", "movements"})
 public class ShiftSession {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @EqualsAndHashCode.Include
     private Long id;
 
     @Column(name = "session_id", nullable = false, unique = true, length = 100)
