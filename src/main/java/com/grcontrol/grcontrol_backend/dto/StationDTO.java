@@ -106,10 +106,26 @@ public class StationDTO {
         Long id,
         String name,
         String fuelType,
+        String fuelName,
+        String color,
         String side,
-        Integer sideIndex,
+        Integer position,
         BigDecimal currentPrice,
-        Boolean isActive
+        Boolean isActive,
+        // Configuración de contadores
+        String readingType, // SOLES, GALLONS, LITROS, RELOJ
+        Boolean hasSolesCounter,
+        Boolean hasGallonsCounter,
+        Boolean hasLitersCounter,
+        Boolean hasClockCounter,
+        Integer solesTotalDigits,
+        Integer solesDecimals,
+        Integer gallonsTotalDigits,
+        Integer gallonsDecimals,
+        Integer litersTotalDigits,
+        Integer litersDecimals,
+        Integer clockTotalDigits,
+        Integer clockDecimals
     ) {}
 
     /**

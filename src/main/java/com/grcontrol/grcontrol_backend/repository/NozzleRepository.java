@@ -59,4 +59,24 @@ public interface NozzleRepository extends JpaRepository<Nozzle, Long> {
     boolean existsByPumpIdAndSideAndFuelType(Long pumpId,
                                               Nozzle.PumpSide side,
                                               Nozzle.FuelType fuelType);
+
+    /**
+     * Buscar mangueras de una isla ordenadas por surtidor y posición
+     * Útil para app móvil del grifero
+     */
+    @Query("SELECT n FROM Nozzle n " +
+           "WHERE n.pump.island.id = :islandId " +
+           "ORDER BY n.pump.position ASC, n.position ASC")
+    List<Nozzle> findByPumpIslandIdOrderByPumpPositionAscPositionAsc(@Param("islandId") Long islandId);
+
+    /**
+     * Buscar todas las mangueras de una estación con JOIN FETCH
+     * Carga todas las relaciones (pump, island, station) de una vez
+     */
+    @Query("SELECT DISTINCT n FROM Nozzle n " +
+           "JOIN FETCH n.pump p " +
+           "JOIN FETCH p.island i " +
+           "JOIN FETCH i.station s " +
+           "WHERE s.id = :stationId")
+    List<Nozzle> findAllByStationIdWithRelations(@Param("stationId") Long stationId);
 }

@@ -40,6 +40,13 @@ public class MovementService {
         movement.setDescription(request.description());
         movement.setMovementTimestamp(LocalDateTime.now());
         movement.setSyncStatus(Movement.SyncStatus.SYNCED);
+        
+        // Set VISA-specific fields if provided
+        movement.setVisaWorkerName(request.visaWorkerName());
+        movement.setVehicleType(request.vehicleType());
+        movement.setVehicleBrand(request.vehicleBrand());
+        movement.setVehiclePlate(request.vehiclePlate());
+        movement.setVehicleColor(request.vehicleColor());
 
         Movement saved = movementRepository.save(movement);
         return mapToMovementResponse(saved);
@@ -82,6 +89,23 @@ public class MovementService {
         if (request.description() != null) {
             movement.setDescription(request.description());
         }
+        
+        // Update VISA-specific fields if provided
+        if (request.visaWorkerName() != null) {
+            movement.setVisaWorkerName(request.visaWorkerName());
+        }
+        if (request.vehicleType() != null) {
+            movement.setVehicleType(request.vehicleType());
+        }
+        if (request.vehicleBrand() != null) {
+            movement.setVehicleBrand(request.vehicleBrand());
+        }
+        if (request.vehiclePlate() != null) {
+            movement.setVehiclePlate(request.vehiclePlate());
+        }
+        if (request.vehicleColor() != null) {
+            movement.setVehicleColor(request.vehicleColor());
+        }
 
         Movement saved = movementRepository.save(movement);
         return mapToMovementResponse(saved);
@@ -108,6 +132,12 @@ public class MovementService {
             movement.getPaymentMethod().name(),
             movement.getAmount(),
             movement.getDescription(),
+            // VISA fields
+            movement.getVisaWorkerName(),
+            movement.getVehicleType(),
+            movement.getVehicleBrand(),
+            movement.getVehiclePlate(),
+            movement.getVehicleColor(),
             movement.getMovementTimestamp(),
             movement.getSyncStatus().name(),
             movement.getCreatedAt(),

@@ -105,6 +105,8 @@ public class WorkerAssignmentDTO {
         String shiftDisplayLabel,
         Long workerId,
         String workerName,
+        String workerFirstName,
+        String workerLastName,
         Boolean isRestDay,
         String status
     ) {}
@@ -121,7 +123,7 @@ public class WorkerAssignmentDTO {
      * Response de asignación activa para una fecha
      */
     public record ActiveAssignmentResponse(
-        Long id,
+        Long assignmentId,  // Cambiar 'id' a 'assignmentId' para mobile
         Long workerId,
         String workerName,
         Long islandId,
@@ -129,10 +131,14 @@ public class WorkerAssignmentDTO {
         Long stationId,
         String stationName,
         Long shiftScheduleId,
-        String shiftScheduleName,
+        String shiftName,
         String shiftDisplayLabel,
+        String startTime,  // Hora de inicio (HH:mm:ss)
+        String endTime,    // Hora de fin (HH:mm:ss)
+        Boolean isOvernight,  // Si el turno cruza medianoche
         LocalDate date,
         DayOfWeek dayOfWeek,
+        LocalDate weekStartDate,  // Lunes de la semana
         Boolean isRestDay
     ) {}
 

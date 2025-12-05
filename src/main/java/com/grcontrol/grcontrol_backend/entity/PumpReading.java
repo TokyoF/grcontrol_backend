@@ -134,8 +134,9 @@ public class PumpReading {
     }
 
     public enum ReadingType {
-        SOLES,
-        GALLONS,
+        SOLES,      // Lectura en dinero (S/.)
+        GALLONS,    // Lectura en volumen (galones o litros)
+        CLOCK,      // Lectura de reloj (contador adicional)
     }
 
     public enum SyncStatus {

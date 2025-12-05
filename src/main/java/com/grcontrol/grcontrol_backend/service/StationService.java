@@ -316,10 +316,26 @@ public class StationService {
                                 nozzle.getId(),
                                 nozzle.getFuelName() != null ? nozzle.getFuelName() : nozzle.getFuelType().name(),
                                 nozzle.getFuelType().name(),
+                                nozzle.getFuelName(),
+                                nozzle.getColor(),
                                 nozzle.getSide().name(),
                                 nozzle.getPosition(),
                                 nozzle.getPricePerGallon(),
-                                nozzle.getActive()
+                                nozzle.getActive(),
+                                // Configuración de contadores
+                                nozzle.getReadingType() != null ? nozzle.getReadingType().name() : "SOLES",
+                                nozzle.getHasSolesCounter(),
+                                nozzle.getHasGallonsCounter(),
+                                nozzle.getHasLitersCounter(),
+                                nozzle.getHasClockCounter(),
+                                nozzle.getSolesTotalDigits(),
+                                nozzle.getSolesDecimals(),
+                                nozzle.getGallonsTotalDigits(),
+                                nozzle.getGallonsDecimals(),
+                                nozzle.getLitersTotalDigits(),
+                                nozzle.getLitersDecimals(),
+                                nozzle.getClockTotalDigits(),
+                                nozzle.getClockDecimals()
                             ))
                             .collect(Collectors.toList());
 

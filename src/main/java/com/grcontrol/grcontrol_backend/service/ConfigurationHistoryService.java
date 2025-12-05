@@ -372,8 +372,18 @@ public class ConfigurationHistoryService {
                 history.getPreviousValue(),
                 history.getNewValue()
             );
+            case DECIMALS_CONFIG -> String.format(
+                "Decimales: %s → %s",
+                history.getPreviousValue(),
+                history.getNewValue()
+            );
             case NOZZLE_ADDED -> "Manguera añadida";
             case NOZZLE_REMOVED -> "Manguera eliminada";
+            case OTHER -> String.format(
+                "Cambio: %s → %s",
+                history.getPreviousValue(),
+                history.getNewValue()
+            );
         };
     }
 }

@@ -217,17 +217,59 @@ public class PumpReadingService {
 
     /**
      * Mapear a BaseReadingResponse
+     * ✨ IMPORTANTE: Devuelve exitDigits del turno anterior para usarse como entrada del siguiente
      */
     private PumpReadingDTO.BaseReadingResponse mapToBaseReadingResponse(PumpReading reading) {
+        // Obtener configuración del nozzle para calcular exitValue
+        Nozzle nozzle = reading.getNozzle();
+        int decimals = getDecimalsForReadingType(nozzle, reading.getReadingType());
+        
+        // Calcular exitValue desde exitDigits
+        double exitValue = calculateValueFromDigits(reading.getExitDigits(), decimals);
+        
         return new PumpReadingDTO.BaseReadingResponse(
             reading.getId(),
-            reading.getNozzle().getId(),
+            nozzle.getId(),
             reading.getSession().getId(),
             reading.getReadingType().name(),
-            reading.getEntryDigits(),
+            reading.getExitDigits(),      // ✨ Cambio: devuelve SALIDA del turno anterior
+            exitValue,                     // ✨ Nuevo: valor numérico calculado
             reading.getDifference(),
             reading.getReadingTimestamp(),
             reading.getCompleted()
         );
+    }
+    
+    /**
+     * Obtener número de decimales según el tipo de lectura y configuración del nozzle
+     */
+    private int getDecimalsForReadingType(Nozzle nozzle, PumpReading.ReadingType readingType) {
+        return switch (readingType) {
+            case SOLES -> nozzle.getSolesDecimals();
+            case GALLONS -> nozzle.getGallonsDecimals();
+            case CLOCK -> nozzle.getClockDecimals();
+        };
+    }
+    
+    /**
+     * Calcular valor numérico desde string de dígitos
+     * Ejemplo: "12345678" con 2 decimales = 123456.78
+     */
+    private double calculateValueFromDigits(String digitsStr, int decimals) {
+        try {
+            // Remover corchetes y comillas si es un array JSON
+            String cleanStr = digitsStr.replace("[", "")
+                                      .replace("]", "")
+                                      .replace("\"", "")
+                                      .replace(",", "");
+            
+            // Convertir a número entero
+            long digitsAsLong = Long.parseLong(cleanStr);
+            
+            // Dividir por 10^decimals para obtener el valor real
+            return digitsAsLong / Math.pow(10, decimals);
+        } catch (Exception e) {
+            return 0.0;
+        }
     }
 }

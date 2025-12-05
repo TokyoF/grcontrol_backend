@@ -75,7 +75,13 @@ public class ShiftDTO {
         String paymentMethod,
         Double amount,
         String description,
-        LocalDateTime movementTimestamp
+        LocalDateTime movementTimestamp,
+        // VISA-specific fields
+        String visaWorkerName,
+        String vehicleType,
+        String vehicleBrand,
+        String vehiclePlate,
+        String vehicleColor
     ) {}
 
     // Arqueo request
@@ -117,5 +123,39 @@ public class ShiftDTO {
         Double premium,
         Double diesel,
         Double glp
+    ) {}
+
+    // Reading update request
+    public record ReadingUpdateRequest(
+        String entryDigits,
+        String exitDigits,
+        Double difference
+    ) {}
+
+    // General stats response
+    public record GeneralStatsResponse(
+        Double totalSales,
+        Integer totalSessions,
+        Integer activeSessions,
+        Integer completedSessions,
+        Double averageSalesPerSession
+    ) {}
+
+    // Daily sales response
+    public record DailySalesResponse(
+        String date,
+        Long stationId,
+        String stationName,
+        Double totalSales,
+        Integer totalTransactions
+    ) {}
+
+    // Sales comparison response
+    public record SalesComparisonResponse(
+        Long stationId,
+        String stationName,
+        Double totalSales,
+        Integer totalTransactions,
+        Double averageSales
     ) {}
 }

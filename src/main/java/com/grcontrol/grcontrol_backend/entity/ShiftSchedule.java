@@ -46,6 +46,9 @@ public class ShiftSchedule {
     @Column(name = "display_label", length = 20)
     private String displayLabel; // "6-14", "14-22", "22-6"
 
+    @Column(name = "is_overnight")
+    private Boolean isOvernight = false; // True si el turno cruza medianoche (ej: 22:00-06:00)
+
     @Column(nullable = false)
     private Boolean active = true;
 
@@ -64,10 +67,20 @@ public class ShiftSchedule {
         if (displayLabel == null && startTime != null && endTime != null) {
             displayLabel = startTime.getHour() + "-" + endTime.getHour();
         }
+
+        // Auto-calcular isOvernight (si endTime es menor que startTime, cruza medianoche)
+        if (startTime != null && endTime != null) {
+            isOvernight = endTime.isBefore(startTime);
+        }
     }
 
     @PreUpdate
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();
+
+        // Re-calcular isOvernight al actualizar
+        if (startTime != null && endTime != null) {
+            isOvernight = endTime.isBefore(startTime);
+        }
     }
 }

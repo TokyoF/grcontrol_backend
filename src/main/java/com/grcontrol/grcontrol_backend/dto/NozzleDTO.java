@@ -134,4 +134,88 @@ public class NozzleDTO {
         Integer failureCount,
         List<String> errors
     ) {}
+
+    /**
+     * Request para actualizar configuración de decimales (DEPRECATED)
+     * Usar UpdateCounterConfigRequest en su lugar
+     */
+    @Deprecated
+    public record UpdateDecimalsRequest(
+        Integer solesDecimals,
+        Integer gallonsDecimals,
+        Integer clockDecimals,
+        String reason,
+        Long changedById
+    ) {}
+
+    /**
+     * Response con configuración de decimales (DEPRECATED)
+     */
+    @Deprecated
+    public record DecimalsConfigResponse(
+        Long nozzleId,
+        Integer solesDecimals,
+        Integer gallonsDecimals,
+        Integer clockDecimals,
+        LocalDateTime updatedAt
+    ) {}
+    
+    /**
+     * Configuración de un contador específico
+     */
+    public record CounterConfig(
+        Boolean enabled,          // Si el contador está habilitado
+        Integer totalDigits,      // Total de dígitos (ej: 6 para 1234.56)
+        Integer decimalDigits     // Cantidad de decimales
+    ) {}
+    
+    /**
+     * Request para actualizar configuración completa de contadores
+     */
+    public record UpdateCounterConfigRequest(
+        String readingType,       // SOLES, GALLONS, LITROS, RELOJ
+        CounterConfig soles,      // Configuración de soles
+        CounterConfig gallons,    // Configuración de galones
+        CounterConfig liters,     // Configuración de litros
+        CounterConfig clock,      // Configuración de reloj
+        String reason,
+        Long changedById
+    ) {}
+    
+    /**
+     * Response con configuración completa de contadores
+     */
+    public record CounterConfigResponse(
+        Long nozzleId,
+        String readingType,
+        CounterConfig soles,
+        CounterConfig gallons,
+        CounterConfig liters,
+        CounterConfig clock,
+        LocalDateTime updatedAt
+    ) {}
+    
+    /**
+     * Response de manguera con configuración de contadores
+     */
+    public record NozzleWithConfigResponse(
+        Long id,
+        Long pumpId,
+        String pumpName,
+        Long islandId,
+        String islandName,
+        String side,
+        Integer position,
+        String fuelType,
+        String fuelName,
+        String color,
+        Boolean isActive,
+        String readingType,
+        CounterConfig soles,
+        CounterConfig gallons,
+        CounterConfig liters,
+        CounterConfig clock,
+        LocalDateTime createdAt,
+        LocalDateTime updatedAt
+    ) {}
 }

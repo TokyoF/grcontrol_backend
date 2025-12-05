@@ -242,6 +242,169 @@ public class ShiftService {
         );
     }
 
+    // ==================== QUERY METHODS ====================
+
+    @Transactional(readOnly = true)
+    public List<ShiftDTO.SessionResponse> getShifts(Long stationId, Long operatorId, String status, String startDate, String endDate) {
+        List<ShiftSession> sessions;
+        
+        if (stationId != null || operatorId != null || status != null) {
+            // Filtrado con parámetros
+            sessions = sessionRepository.findAll().stream()
+                .filter(s -> stationId == null || (s.getStationId() != null && s.getStationId().equals(stationId.intValue())))
+                .filter(s -> operatorId == null || s.getOperator().getId().equals(operatorId))
+                .filter(s -> status == null || s.getStatus().name().equals(status))
+                .filter(s -> startDate == null || s.getStartTime().toLocalDate().toString().compareTo(startDate) >= 0)
+                .filter(s -> endDate == null || s.getStartTime().toLocalDate().toString().compareTo(endDate) <= 0)
+                .toList();
+        } else {
+            sessions = sessionRepository.findAll();
+        }
+        
+        return sessions.stream().map(this::toSessionResponse).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public ShiftDTO.SessionResponse getShiftById(Long id) {
+        ShiftSession session = sessionRepository.findById(id)
+            .orElseThrow(() -> new IllegalArgumentException("Session not found: " + id));
+        return toSessionResponse(session);
+    }
+
+    @Transactional
+    public PumpReading updateReading(Long id, ShiftDTO.ReadingUpdateRequest request) {
+        PumpReading reading = readingRepository.findById(id)
+            .orElseThrow(() -> new IllegalArgumentException("Reading not found: " + id));
+        
+        if (request.entryDigits() != null) {
+            reading.setEntryDigits(request.entryDigits());
+        }
+        if (request.exitDigits() != null) {
+            reading.setExitDigits(request.exitDigits());
+        }
+        if (request.difference() != null) {
+            reading.setDifference(request.difference());
+        }
+        
+        reading = readingRepository.save(reading);
+        
+        // Recalcular total de la sesión
+        ShiftSession session = reading.getSession();
+        Double totalSales = readingRepository.sumSalesBySession(session);
+        session.setTotalSales(totalSales != null ? totalSales : 0.0);
+        sessionRepository.save(session);
+        
+        return reading;
+    }
+
+    @Transactional
+    public ShiftDTO.SessionResponse completeShift(Long id) {
+        ShiftSession session = sessionRepository.findById(id)
+            .orElseThrow(() -> new IllegalArgumentException("Session not found: " + id));
+        
+        session.setStatus(ShiftSession.SessionStatus.COMPLETED);
+        if (session.getEndTime() == null) {
+            session.setEndTime(java.time.LocalDateTime.now());
+        }
+        
+        // Recalcular totales
+        Double totalSales = readingRepository.sumSalesBySession(session);
+        session.setTotalSales(totalSales != null ? totalSales : 0.0);
+        
+        session = sessionRepository.save(session);
+        return toSessionResponse(session);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ShiftDTO.SessionResponse> getShiftsByStation(Long stationId, String startDate, String endDate) {
+        return getShifts(stationId, null, null, startDate, endDate);
+    }
+
+    @Transactional(readOnly = true)
+    public ShiftDTO.GeneralStatsResponse getGeneralStats(Long stationId, String startDate, String endDate) {
+        List<ShiftSession> sessions = sessionRepository.findAll().stream()
+            .filter(s -> stationId == null || (s.getStationId() != null && s.getStationId().equals(stationId.intValue())))
+            .filter(s -> startDate == null || s.getStartTime().toLocalDate().toString().compareTo(startDate) >= 0)
+            .filter(s -> endDate == null || s.getStartTime().toLocalDate().toString().compareTo(endDate) <= 0)
+            .toList();
+        
+        double totalSales = sessions.stream()
+            .mapToDouble(s -> s.getTotalSales() != null ? s.getTotalSales() : 0.0)
+            .sum();
+        
+        long activeSessions = sessions.stream()
+            .filter(s -> s.getStatus() == ShiftSession.SessionStatus.ACTIVE)
+            .count();
+        
+        long completedSessions = sessions.stream()
+            .filter(s -> s.getStatus() == ShiftSession.SessionStatus.COMPLETED)
+            .count();
+        
+        double averageSales = sessions.isEmpty() ? 0.0 : totalSales / sessions.size();
+        
+        return new ShiftDTO.GeneralStatsResponse(
+            totalSales,
+            sessions.size(),
+            (int) activeSessions,
+            (int) completedSessions,
+            averageSales
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public List<ShiftDTO.DailySalesResponse> getDailySales(String startDate, String endDate) {
+        List<ShiftSession> sessions = sessionRepository.findAll().stream()
+            .filter(s -> startDate == null || s.getStartTime().toLocalDate().toString().compareTo(startDate) >= 0)
+            .filter(s -> endDate == null || s.getStartTime().toLocalDate().toString().compareTo(endDate) <= 0)
+            .toList();
+        
+        return sessions.stream()
+            .collect(java.util.stream.Collectors.groupingBy(
+                s -> s.getStartTime().toLocalDate().toString() + "-" + s.getStationId(),
+                java.util.stream.Collectors.collectingAndThen(
+                    java.util.stream.Collectors.toList(),
+                    list -> new ShiftDTO.DailySalesResponse(
+                        list.get(0).getStartTime().toLocalDate().toString(),
+                        list.get(0).getStationId() != null ? list.get(0).getStationId().longValue() : 0L,
+                        list.get(0).getStationName(),
+                        list.stream().mapToDouble(s -> s.getTotalSales() != null ? s.getTotalSales() : 0.0).sum(),
+                        list.size()
+                    )
+                )
+            ))
+            .values()
+            .stream()
+            .sorted((a, b) -> a.date().compareTo(b.date()))
+            .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<ShiftDTO.SalesComparisonResponse> getSalesComparison(String startDate, String endDate) {
+        List<ShiftSession> sessions = sessionRepository.findAll().stream()
+            .filter(s -> startDate == null || s.getStartTime().toLocalDate().toString().compareTo(startDate) >= 0)
+            .filter(s -> endDate == null || s.getStartTime().toLocalDate().toString().compareTo(endDate) <= 0)
+            .toList();
+        
+        return sessions.stream()
+            .collect(java.util.stream.Collectors.groupingBy(
+                s -> s.getStationId() != null ? s.getStationId().longValue() : 0L,
+                java.util.stream.Collectors.collectingAndThen(
+                    java.util.stream.Collectors.toList(),
+                    list -> new ShiftDTO.SalesComparisonResponse(
+                        list.get(0).getStationId() != null ? list.get(0).getStationId().longValue() : 0L,
+                        list.get(0).getStationName(),
+                        list.stream().mapToDouble(s -> s.getTotalSales() != null ? s.getTotalSales() : 0.0).sum(),
+                        list.size(),
+                        list.stream().mapToDouble(s -> s.getTotalSales() != null ? s.getTotalSales() : 0.0).average().orElse(0.0)
+                    )
+                )
+            ))
+            .values()
+            .stream()
+            .sorted((a, b) -> Double.compare(b.totalSales(), a.totalSales()))
+            .toList();
+    }
+
     // ==================== HELPERS ====================
 
     private ShiftDTO.SessionResponse toSessionResponse(ShiftSession session) {

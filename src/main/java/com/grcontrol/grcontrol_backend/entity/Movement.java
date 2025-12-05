@@ -47,6 +47,22 @@ public class Movement {
     @Column(name = "movement_timestamp", nullable = false)
     private LocalDateTime movementTimestamp;
 
+    // VISA-specific fields (only for credit/debit card payments)
+    @Column(name = "visa_worker_name", length = 100)
+    private String visaWorkerName;
+
+    @Column(name = "vehicle_type", length = 10)
+    private String vehicleType; // AUTO, MOTO
+
+    @Column(name = "vehicle_brand", length = 50)
+    private String vehicleBrand;
+
+    @Column(name = "vehicle_plate", length = 10)
+    private String vehiclePlate;
+
+    @Column(name = "vehicle_color", length = 30)
+    private String vehicleColor;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "sync_status", length = 20)
     private SyncStatus syncStatus = SyncStatus.SYNCED;

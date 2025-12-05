@@ -197,6 +197,125 @@ public class NozzleController {
         }
     }
 
+    // ==================== DECIMAL CONFIGURATION ====================
+
+    /**
+     * GET /api/nozzles/{id}/decimals
+     * Obtener configuración de decimales de una manguera
+     */
+    @GetMapping("/{id}/decimals")
+    public ResponseEntity<?> getDecimalsConfig(@PathVariable Long id) {
+        try {
+            var response = nozzleService.getDecimalsConfig(id);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    /**
+     * PUT /api/nozzles/{id}/decimals
+     * Actualizar configuración de decimales de una manguera
+     * Requiere rol ADMINISTRADOR o GERENTE
+     */
+    @PutMapping("/{id}/decimals")
+    @PreAuthorize("hasAnyRole('ADMINISTRADOR', 'GERENTE')")
+    public ResponseEntity<?> updateDecimalsConfig(
+        @PathVariable Long id,
+        @RequestBody NozzleDTO.UpdateDecimalsRequest request
+    ) {
+        try {
+            var response = nozzleService.updateDecimalsConfig(id, request);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(
+                new NozzleDTO.OperationResponse(
+                    false,
+                    e.getMessage(),
+                    null
+                )
+            );
+        }
+    }
+
+    // ==================== COUNTER CONFIGURATION ====================
+
+    /**
+     * GET /api/nozzles/{id}/counter-config
+     * Obtener configuración completa de contadores de una manguera
+     */
+    @GetMapping("/{id}/counter-config")
+    public ResponseEntity<?> getCounterConfig(@PathVariable Long id) {
+        try {
+            var response = nozzleService.getCounterConfig(id);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    /**
+     * PUT /api/nozzles/{id}/counter-config
+     * Actualizar configuración completa de contadores de una manguera
+     * Requiere rol ADMINISTRADOR o GERENTE
+     */
+    @PutMapping("/{id}/counter-config")
+    @PreAuthorize("hasAnyRole('ADMINISTRADOR', 'GERENTE')")
+    public ResponseEntity<?> updateCounterConfig(
+        @PathVariable Long id,
+        @RequestBody NozzleDTO.UpdateCounterConfigRequest request
+    ) {
+        try {
+            var response = nozzleService.updateCounterConfig(id, request);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(
+                new NozzleDTO.OperationResponse(
+                    false,
+                    e.getMessage(),
+                    null
+                )
+            );
+        }
+    }
+
+    /**
+     * GET /api/nozzles/{id}/with-config
+     * Obtener manguera con configuración completa de contadores
+     */
+    @GetMapping("/{id}/with-config")
+    public ResponseEntity<?> getNozzleWithConfig(@PathVariable Long id) {
+        try {
+            var response = nozzleService.getNozzleWithConfig(id);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    /**
+     * GET /api/nozzles/pump/{pumpId}/with-config
+     * Obtener todas las mangueras de un surtidor con configuración
+     */
+    @GetMapping("/pump/{pumpId}/with-config")
+    public ResponseEntity<?> getNozzlesWithConfigByPump(@PathVariable Long pumpId) {
+        var response = nozzleService.getNozzlesWithConfigByPump(pumpId);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * GET /api/nozzles/island/{islandId}/with-config
+     * Obtener todas las mangueras de una isla con configuración
+     * Útil para la app móvil del grifero
+     */
+    @GetMapping("/island/{islandId}/with-config")
+    public ResponseEntity<?> getNozzlesWithConfigByIsland(@PathVariable Long islandId) {
+        var response = nozzleService.getNozzlesWithConfigByIsland(islandId);
+        return ResponseEntity.ok(response);
+    }
+
+    // ==================== DELETE ====================
+
     /**
      * DELETE /api/nozzles/{id}
      * Eliminar manguera

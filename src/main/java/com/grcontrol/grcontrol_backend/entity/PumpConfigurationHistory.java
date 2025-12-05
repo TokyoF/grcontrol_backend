@@ -75,6 +75,8 @@ public class PumpConfigurationHistory {
         NOZZLE_ADDED,
         NOZZLE_REMOVED,
         ACTIVATION,
-        DEACTIVATION
+        DEACTIVATION,
+        DECIMALS_CONFIG,
+        OTHER
     }
 }

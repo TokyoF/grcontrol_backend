@@ -65,6 +65,54 @@ public class Nozzle {
     @Column(nullable = false)
     private Boolean active = true;
 
+    // ==================== CONFIGURACIÓN DE CONTADORES ====================
+    
+    // Tipo de medida principal (SOLES, GALLONS, LITROS, RELOJ)
+    @Enumerated(EnumType.STRING)
+    @Column(name = "reading_type", length = 20)
+    private ReadingType readingType = ReadingType.SOLES;
+    
+    // Configuración para SOLES
+    @Column(name = "soles_total_digits")
+    private Integer solesTotalDigits = 6; // Total de dígitos (ej: 123456 = 1234.56)
+    
+    @Column(name = "soles_decimals")
+    private Integer solesDecimals = 2; // Cantidad de decimales
+    
+    // Configuración para GALONES
+    @Column(name = "gallons_total_digits")
+    private Integer gallonsTotalDigits = 6; // Total de dígitos
+    
+    @Column(name = "gallons_decimals")
+    private Integer gallonsDecimals = 3; // Cantidad de decimales
+    
+    // Configuración para LITROS
+    @Column(name = "liters_total_digits")
+    private Integer litersTotalDigits = 6;
+    
+    @Column(name = "liters_decimals")
+    private Integer litersDecimals = 2;
+    
+    // Configuración para RELOJ (contador mecánico)
+    @Column(name = "clock_total_digits")
+    private Integer clockTotalDigits = 8; // Total de dígitos para reloj
+    
+    @Column(name = "clock_decimals")
+    private Integer clockDecimals = 0; // Por defecto 0 decimales para reloj (entero)
+    
+    // Si la manguera tiene múltiples contadores habilitados
+    @Column(name = "has_soles_counter")
+    private Boolean hasSolesCounter = true;
+    
+    @Column(name = "has_gallons_counter")
+    private Boolean hasGallonsCounter = true;
+    
+    @Column(name = "has_liters_counter")
+    private Boolean hasLitersCounter = false;
+    
+    @Column(name = "has_clock_counter")
+    private Boolean hasClockCounter = false;
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
@@ -97,5 +145,12 @@ public class Nozzle {
     public enum NozzleStatus {
         ACTIVE,
         OFFLINE
+    }
+    
+    public enum ReadingType {
+        SOLES,     // Lectura en soles (dinero)
+        GALLONS,   // Lectura en galones
+        LITROS,    // Lectura en litros
+        RELOJ      // Lectura de reloj/contador mecánico
     }
 }

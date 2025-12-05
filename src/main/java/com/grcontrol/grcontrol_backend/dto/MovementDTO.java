@@ -14,7 +14,13 @@ public class MovementDTO {
         Long sessionId,
         String paymentMethod,    // EFECTIVO, TARJETA_CREDITO, etc.
         Double amount,
-        String description
+        String description,
+        // VISA-specific fields (optional, only for TARJETA_CREDITO/DEBITO)
+        String visaWorkerName,
+        String vehicleType,      // AUTO, MOTO
+        String vehicleBrand,
+        String vehiclePlate,
+        String vehicleColor
     ) {}
 
     /**
@@ -23,7 +29,13 @@ public class MovementDTO {
     public record UpdateMovementRequest(
         String paymentMethod,
         Double amount,
-        String description
+        String description,
+        // VISA-specific fields
+        String visaWorkerName,
+        String vehicleType,
+        String vehicleBrand,
+        String vehiclePlate,
+        String vehicleColor
     ) {}
 
     /**
@@ -36,6 +48,12 @@ public class MovementDTO {
         String paymentMethod,
         Double amount,
         String description,
+        // VISA fields
+        String visaWorkerName,
+        String vehicleType,
+        String vehicleBrand,
+        String vehiclePlate,
+        String vehicleColor,
         LocalDateTime movementTimestamp,
         String syncStatus,
         LocalDateTime createdAt,

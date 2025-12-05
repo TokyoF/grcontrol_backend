@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -115,17 +116,58 @@ public class SchedulingService {
 
         DayOfWeek dayOfWeek = request.date().getDayOfWeek();
 
-        WorkerAssignment assignment = assignmentRepository.findActiveAssignment(
+        // Obtener TODAS las asignaciones del trabajador para este día
+        List<WorkerAssignment> assignments = assignmentRepository.findActiveAssignments(
             request.workerId(),
             request.date(),
             dayOfWeek
-        ).orElse(null);
+        );
 
-        if (assignment == null) {
+        if (assignments.isEmpty()) {
             return null;
         }
 
-        return toActiveAssignmentResponse(assignment, request.date());
+        // Si solo hay 1 asignación, retornarla directamente
+        if (assignments.size() == 1) {
+            return toActiveAssignmentResponse(assignments.get(0), request.date());
+        }
+
+        // Si hay múltiples asignaciones, elegir la correcta según la hora actual
+        LocalTime currentTime = LocalTime.now();
+        WorkerAssignment selectedAssignment = null;
+
+        for (WorkerAssignment assignment : assignments) {
+            // Días de descanso no tienen horario
+            if (assignment.getRestDay() || assignment.getShiftSchedule() == null) {
+                continue;
+            }
+
+            LocalTime startTime = assignment.getShiftSchedule().getStartTime();
+            LocalTime endTime = assignment.getShiftSchedule().getEndTime();
+            Boolean isOvernight = assignment.getShiftSchedule().getIsOvernight();
+
+            // Verificar si la hora actual está dentro del rango del turno
+            boolean isInRange;
+            if (isOvernight != null && isOvernight) {
+                // Turno nocturno: ej. 22:00 - 06:00
+                isInRange = currentTime.isAfter(startTime) || currentTime.isBefore(endTime);
+            } else {
+                // Turno normal: ej. 06:00 - 14:00
+                isInRange = currentTime.isAfter(startTime) && currentTime.isBefore(endTime);
+            }
+
+            if (isInRange) {
+                selectedAssignment = assignment;
+                break;
+            }
+        }
+
+        // Si ningún turno coincide con la hora actual, retornar el primero (turno más temprano)
+        if (selectedAssignment == null) {
+            selectedAssignment = assignments.get(0);
+        }
+
+        return toActiveAssignmentResponse(selectedAssignment, request.date());
     }
 
     @Transactional(readOnly = true)
@@ -138,11 +180,16 @@ public class SchedulingService {
         List<WorkerAssignment> assignments = assignmentRepository.findByWorkerIdAndWeekStartDate(
             workerId, weekStartDate);
 
-        List<WorkerAssignmentDTO.AssignmentResponse> assignmentResponses = assignments.stream()
+        // Filtrar solo asignaciones ACTIVAS
+        List<WorkerAssignment> activeAssignments = assignments.stream()
+            .filter(a -> a.getStatus() == WorkerAssignment.AssignmentStatus.ACTIVE)
+            .collect(Collectors.toList());
+
+        List<WorkerAssignmentDTO.AssignmentResponse> assignmentResponses = activeAssignments.stream()
             .map(this::toAssignmentResponse)
             .collect(Collectors.toList());
 
-        long restDaysCount = assignments.stream()
+        long restDaysCount = activeAssignments.stream()
             .filter(WorkerAssignment::getRestDay)
             .count();
 
@@ -153,7 +200,7 @@ public class SchedulingService {
             weekStartDate.plusDays(6),
             assignmentResponses,
             (int) restDaysCount,
-            assignments.size() - (int) restDaysCount
+            activeAssignments.size() - (int) restDaysCount
         );
     }
 
@@ -167,11 +214,16 @@ public class SchedulingService {
         List<WorkerAssignment> assignments = assignmentRepository.findByIslandIdAndWeekStartDate(
             islandId, weekStartDate);
 
+        // Filtrar solo asignaciones ACTIVAS
+        List<WorkerAssignment> activeAssignments = assignments.stream()
+            .filter(a -> a.getStatus() == WorkerAssignment.AssignmentStatus.ACTIVE)
+            .collect(Collectors.toList());
+
         // Agrupar por día
         List<WorkerAssignmentDTO.DaySchedule> schedule = new ArrayList<>();
 
         for (DayOfWeek day : DayOfWeek.values()) {
-            List<WorkerAssignment> dayAssignments = assignments.stream()
+            List<WorkerAssignment> dayAssignments = activeAssignments.stream()
                 .filter(a -> a.getDayOfWeek() == day)
                 .collect(Collectors.toList());
 
@@ -183,6 +235,8 @@ public class SchedulingService {
                     a.getShiftSchedule().getDisplayLabel(),
                     a.getWorker().getId(),
                     a.getWorker().getFirstName() + " " + a.getWorker().getLastName(),
+                    a.getWorker().getFirstName(),
+                    a.getWorker().getLastName(),
                     a.getRestDay(),
                     a.getStatus().name()
                 ))
@@ -334,19 +388,45 @@ public class SchedulingService {
 
     private WorkerAssignmentDTO.ActiveAssignmentResponse toActiveAssignmentResponse(
         WorkerAssignment assignment, LocalDate date) {
+        // Si es día de descanso, shiftSchedule puede ser null
+        Long shiftScheduleId = assignment.getShiftSchedule() != null ? assignment.getShiftSchedule().getId() : null;
+        String shiftName = assignment.getShiftSchedule() != null ? assignment.getShiftSchedule().getName() : "DESCANSO";
+        String shiftDisplayLabel = assignment.getShiftSchedule() != null ? assignment.getShiftSchedule().getDisplayLabel() : "Descanso";
+        String startTime = assignment.getShiftSchedule() != null ? assignment.getShiftSchedule().getStartTime().toString() : null;
+        String endTime = assignment.getShiftSchedule() != null ? assignment.getShiftSchedule().getEndTime().toString() : null;
+        Boolean isOvernight = assignment.getShiftSchedule() != null && assignment.getShiftSchedule().getIsOvernight();
+        
+        // Si es día de descanso, island también puede ser null
+        Long islandId = assignment.getIsland() != null ? assignment.getIsland().getId() : null;
+        String islandName = assignment.getIsland() != null ? assignment.getIsland().getName() : "Sin asignación";
+        
+        Long stationId = null;
+        String stationName = null;
+        if (assignment.getIsland() != null && assignment.getIsland().getStation() != null) {
+            stationId = assignment.getIsland().getStation().getId();
+            stationName = assignment.getIsland().getStation().getName();
+        }
+        
+        // Calcular lunes de la semana
+        LocalDate weekStartDate = assignment.getWeekStartDate();
+        
         return new WorkerAssignmentDTO.ActiveAssignmentResponse(
             assignment.getId(),
             assignment.getWorker().getId(),
             assignment.getWorker().getFirstName() + " " + assignment.getWorker().getLastName(),
-            assignment.getIsland().getId(),
-            assignment.getIsland().getName(),
-            assignment.getIsland().getStation().getId(),
-            assignment.getIsland().getStation().getName(),
-            assignment.getShiftSchedule().getId(),
-            assignment.getShiftSchedule().getName(),
-            assignment.getShiftSchedule().getDisplayLabel(),
+            islandId,
+            islandName,
+            stationId,
+            stationName,
+            shiftScheduleId,
+            shiftName,
+            shiftDisplayLabel,
+            startTime,
+            endTime,
+            isOvernight,
             date,
             assignment.getDayOfWeek(),
+            weekStartDate,
             assignment.getRestDay()
         );
     }

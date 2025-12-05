@@ -108,4 +108,139 @@ public class ShiftController {
     public ResponseEntity<String> healthCheck() {
         return ResponseEntity.ok("Shift service is running");
     }
+
+    /**
+     * GET /api/shifts
+     * Obtener turnos con filtros
+     */
+    @GetMapping
+    public ResponseEntity<?> getShifts(
+        @RequestParam(required = false) Long stationId,
+        @RequestParam(required = false) Long operatorId,
+        @RequestParam(required = false) String status,
+        @RequestParam(required = false) String startDate,
+        @RequestParam(required = false) String endDate
+    ) {
+        try {
+            var shifts = shiftService.getShifts(stationId, operatorId, status, startDate, endDate);
+            return ResponseEntity.ok(shifts);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Error: " + e.getMessage());
+        }
+    }
+
+    /**
+     * GET /api/shifts/by-id/{id}
+     * Obtener un turno por su ID de base de datos
+     */
+    @GetMapping("/by-id/{id}")
+    public ResponseEntity<?> getShiftById(@PathVariable Long id) {
+        try {
+            var shift = shiftService.getShiftById(id);
+            return ResponseEntity.ok(shift);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    /**
+     * PUT /api/shifts/readings/{id}
+     * Actualizar una lectura
+     */
+    @PutMapping("/readings/{id}")
+    public ResponseEntity<?> updateReading(
+        @PathVariable Long id,
+        @RequestBody ShiftDTO.ReadingUpdateRequest request
+    ) {
+        try {
+            var reading = shiftService.updateReading(id, request);
+            return ResponseEntity.ok(reading);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    /**
+     * POST /api/shifts/{id}/complete
+     * Completar un turno
+     */
+    @PostMapping("/by-id/{id}/complete")
+    public ResponseEntity<?> completeShift(@PathVariable Long id) {
+        try {
+            var shift = shiftService.completeShift(id);
+            return ResponseEntity.ok(shift);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    /**
+     * GET /api/shifts/by-station
+     * Obtener turnos por estación
+     */
+    @GetMapping("/by-station")
+    public ResponseEntity<?> getShiftsByStation(
+        @RequestParam Long stationId,
+        @RequestParam(required = false) String startDate,
+        @RequestParam(required = false) String endDate
+    ) {
+        try {
+            var shifts = shiftService.getShiftsByStation(stationId, startDate, endDate);
+            return ResponseEntity.ok(shifts);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Error: " + e.getMessage());
+        }
+    }
+
+    /**
+     * GET /api/shifts/stats
+     * Obtener estadísticas generales
+     */
+    @GetMapping("/stats")
+    public ResponseEntity<?> getGeneralStats(
+        @RequestParam(required = false) Long stationId,
+        @RequestParam(required = false) String startDate,
+        @RequestParam(required = false) String endDate
+    ) {
+        try {
+            var stats = shiftService.getGeneralStats(stationId, startDate, endDate);
+            return ResponseEntity.ok(stats);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Error: " + e.getMessage());
+        }
+    }
+
+    /**
+     * GET /api/shifts/daily-sales
+     * Obtener ventas diarias por estación
+     */
+    @GetMapping("/daily-sales")
+    public ResponseEntity<?> getDailySales(
+        @RequestParam String startDate,
+        @RequestParam String endDate
+    ) {
+        try {
+            var dailySales = shiftService.getDailySales(startDate, endDate);
+            return ResponseEntity.ok(dailySales);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Error: " + e.getMessage());
+        }
+    }
+
+    /**
+     * GET /api/shifts/sales-comparison
+     * Obtener comparativa de ventas por estación
+     */
+    @GetMapping("/sales-comparison")
+    public ResponseEntity<?> getSalesComparison(
+        @RequestParam String startDate,
+        @RequestParam String endDate
+    ) {
+        try {
+            var comparison = shiftService.getSalesComparison(startDate, endDate);
+            return ResponseEntity.ok(comparison);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Error: " + e.getMessage());
+        }
+    }
 }

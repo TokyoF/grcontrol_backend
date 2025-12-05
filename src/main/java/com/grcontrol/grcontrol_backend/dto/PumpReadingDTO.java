@@ -72,13 +72,16 @@ public class PumpReadingDTO {
 
     /**
      * Response para lectura base (del turno anterior)
+     * ✨ IMPORTANTE: exitDigits contiene la lectura de SALIDA del turno anterior
+     * que se convertirá en la lectura de ENTRADA del turno actual
      */
     public record BaseReadingResponse(
         Long id,
         Long nozzleId,
         Long sessionId,
         String readingType,
-        String digits,
+        String exitDigits,      // ✨ Cambio: devuelve exitDigits (SALIDA del turno anterior)
+        Double exitValue,       // ✨ Nuevo: valor numérico de exitDigits
         Double difference,
         LocalDateTime readingTimestamp,
         Boolean completed

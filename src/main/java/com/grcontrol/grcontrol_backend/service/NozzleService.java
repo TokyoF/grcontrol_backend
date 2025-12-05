@@ -253,6 +253,306 @@ public class NozzleService {
         nozzleRepository.deleteById(id);
     }
 
+    // ==================== DECIMAL CONFIGURATION ====================
+
+    /**
+     * Actualizar configuración de decimales de una manguera
+     */
+    @Transactional
+    public NozzleDTO.DecimalsConfigResponse updateDecimalsConfig(Long id, NozzleDTO.UpdateDecimalsRequest request) {
+        Nozzle nozzle = nozzleRepository.findById(id)
+            .orElseThrow(() -> new IllegalArgumentException("Nozzle not found with id: " + id));
+
+        // Validar valores
+        if (request.solesDecimals() != null && (request.solesDecimals() < 0 || request.solesDecimals() > 5)) {
+            throw new IllegalArgumentException("solesDecimals debe estar entre 0 y 5");
+        }
+        if (request.gallonsDecimals() != null && (request.gallonsDecimals() < 0 || request.gallonsDecimals() > 5)) {
+            throw new IllegalArgumentException("gallonsDecimals debe estar entre 0 y 5");
+        }
+        if (request.clockDecimals() != null && (request.clockDecimals() < 0 || request.clockDecimals() > 5)) {
+            throw new IllegalArgumentException("clockDecimals debe estar entre 0 y 5");
+        }
+
+        String oldConfig = String.format("Soles:%d, Gallons:%d, Clock:%d",
+            nozzle.getSolesDecimals() != null ? nozzle.getSolesDecimals() : 2,
+            nozzle.getGallonsDecimals() != null ? nozzle.getGallonsDecimals() : 3,
+            nozzle.getClockDecimals() != null ? nozzle.getClockDecimals() : 0
+        );
+
+        // Actualizar valores
+        if (request.solesDecimals() != null) {
+            nozzle.setSolesDecimals(request.solesDecimals());
+        }
+        if (request.gallonsDecimals() != null) {
+            nozzle.setGallonsDecimals(request.gallonsDecimals());
+        }
+        if (request.clockDecimals() != null) {
+            nozzle.setClockDecimals(request.clockDecimals());
+        }
+
+        nozzle = nozzleRepository.save(nozzle);
+
+        String newConfig = String.format("Soles:%d, Gallons:%d, Clock:%d",
+            nozzle.getSolesDecimals(),
+            nozzle.getGallonsDecimals(),
+            nozzle.getClockDecimals()
+        );
+
+        // Registrar cambio en historial
+        recordConfigurationChange(
+            nozzle,
+            PumpConfigurationHistory.ConfigChangeType.DECIMALS_CONFIG,
+            oldConfig,
+            newConfig,
+            request.changedById(),
+            null,
+            request.reason(),
+            "Decimals configuration updated"
+        );
+
+        return new NozzleDTO.DecimalsConfigResponse(
+            nozzle.getId(),
+            nozzle.getSolesDecimals(),
+            nozzle.getGallonsDecimals(),
+            nozzle.getClockDecimals(),
+            nozzle.getUpdatedAt()
+        );
+    }
+
+    /**
+     * Obtener configuración de decimales de una manguera
+     */
+    @Transactional(readOnly = true)
+    public NozzleDTO.DecimalsConfigResponse getDecimalsConfig(Long id) {
+        Nozzle nozzle = nozzleRepository.findById(id)
+            .orElseThrow(() -> new IllegalArgumentException("Nozzle not found with id: " + id));
+
+        return new NozzleDTO.DecimalsConfigResponse(
+            nozzle.getId(),
+            nozzle.getSolesDecimals() != null ? nozzle.getSolesDecimals() : 2,
+            nozzle.getGallonsDecimals() != null ? nozzle.getGallonsDecimals() : 3,
+            nozzle.getClockDecimals() != null ? nozzle.getClockDecimals() : 0,
+            nozzle.getUpdatedAt()
+        );
+    }
+
+    // ==================== COUNTER CONFIGURATION ====================
+
+    /**
+     * Actualizar configuración completa de contadores de una manguera
+     */
+    @Transactional
+    public NozzleDTO.CounterConfigResponse updateCounterConfig(Long id, NozzleDTO.UpdateCounterConfigRequest request) {
+        Nozzle nozzle = nozzleRepository.findById(id)
+            .orElseThrow(() -> new IllegalArgumentException("Nozzle not found with id: " + id));
+
+        String oldConfig = getCurrentConfigString(nozzle);
+
+        // Actualizar tipo de lectura principal
+        if (request.readingType() != null) {
+            nozzle.setReadingType(Nozzle.ReadingType.valueOf(request.readingType()));
+        }
+
+        // Actualizar configuración de SOLES
+        if (request.soles() != null) {
+            validateCounterConfig(request.soles(), "soles");
+            nozzle.setHasSolesCounter(request.soles().enabled());
+            nozzle.setSolesTotalDigits(request.soles().totalDigits());
+            nozzle.setSolesDecimals(request.soles().decimalDigits());
+        }
+
+        // Actualizar configuración de GALONES
+        if (request.gallons() != null) {
+            validateCounterConfig(request.gallons(), "gallons");
+            nozzle.setHasGallonsCounter(request.gallons().enabled());
+            nozzle.setGallonsTotalDigits(request.gallons().totalDigits());
+            nozzle.setGallonsDecimals(request.gallons().decimalDigits());
+        }
+
+        // Actualizar configuración de LITROS
+        if (request.liters() != null) {
+            validateCounterConfig(request.liters(), "liters");
+            nozzle.setHasLitersCounter(request.liters().enabled());
+            nozzle.setLitersTotalDigits(request.liters().totalDigits());
+            nozzle.setLitersDecimals(request.liters().decimalDigits());
+        }
+
+        // Actualizar configuración de RELOJ
+        if (request.clock() != null) {
+            validateCounterConfig(request.clock(), "clock");
+            nozzle.setHasClockCounter(request.clock().enabled());
+            nozzle.setClockTotalDigits(request.clock().totalDigits());
+            nozzle.setClockDecimals(request.clock().decimalDigits());
+        }
+
+        nozzle = nozzleRepository.save(nozzle);
+
+        String newConfig = getCurrentConfigString(nozzle);
+
+        // Registrar cambio en historial
+        recordConfigurationChange(
+            nozzle,
+            PumpConfigurationHistory.ConfigChangeType.DECIMALS_CONFIG,
+            oldConfig,
+            newConfig,
+            request.changedById(),
+            null,
+            request.reason(),
+            "Counter configuration updated"
+        );
+
+        return toCounterConfigResponse(nozzle);
+    }
+
+    /**
+     * Obtener configuración de contadores de una manguera
+     */
+    @Transactional(readOnly = true)
+    public NozzleDTO.CounterConfigResponse getCounterConfig(Long id) {
+        Nozzle nozzle = nozzleRepository.findById(id)
+            .orElseThrow(() -> new IllegalArgumentException("Nozzle not found with id: " + id));
+
+        return toCounterConfigResponse(nozzle);
+    }
+
+    /**
+     * Obtener manguera con configuración completa
+     */
+    @Transactional(readOnly = true)
+    public NozzleDTO.NozzleWithConfigResponse getNozzleWithConfig(Long id) {
+        Nozzle nozzle = nozzleRepository.findById(id)
+            .orElseThrow(() -> new IllegalArgumentException("Nozzle not found with id: " + id));
+
+        return toNozzleWithConfigResponse(nozzle);
+    }
+
+    /**
+     * Obtener todas las mangueras de un surtidor con configuración
+     */
+    @Transactional(readOnly = true)
+    public List<NozzleDTO.NozzleWithConfigResponse> getNozzlesWithConfigByPump(Long pumpId) {
+        return nozzleRepository.findByPumpIdOrderByPosition(pumpId).stream()
+            .map(this::toNozzleWithConfigResponse)
+            .collect(Collectors.toList());
+    }
+
+    /**
+     * Obtener todas las mangueras de una isla con configuración
+     */
+    @Transactional(readOnly = true)
+    public List<NozzleDTO.NozzleWithConfigResponse> getNozzlesWithConfigByIsland(Long islandId) {
+        return nozzleRepository.findByPumpIslandIdOrderByPumpPositionAscPositionAsc(islandId).stream()
+            .map(this::toNozzleWithConfigResponse)
+            .collect(Collectors.toList());
+    }
+
+    private void validateCounterConfig(NozzleDTO.CounterConfig config, String counterName) {
+        if (config.enabled() != null && config.enabled()) {
+            if (config.totalDigits() == null || config.totalDigits() < 1 || config.totalDigits() > 12) {
+                throw new IllegalArgumentException(
+                    counterName + ": totalDigits debe estar entre 1 y 12 cuando el contador está habilitado"
+                );
+            }
+            if (config.decimalDigits() == null || config.decimalDigits() < 0 || config.decimalDigits() > 6) {
+                throw new IllegalArgumentException(
+                    counterName + ": decimalDigits debe estar entre 0 y 6"
+                );
+            }
+            if (config.decimalDigits() >= config.totalDigits()) {
+                throw new IllegalArgumentException(
+                    counterName + ": decimalDigits debe ser menor que totalDigits"
+                );
+            }
+        }
+    }
+
+    private String getCurrentConfigString(Nozzle nozzle) {
+        return String.format(
+            "Type:%s, Soles:%s(%d.%d), Gallons:%s(%d.%d), Liters:%s(%d.%d), Clock:%s(%d.%d)",
+            nozzle.getReadingType() != null ? nozzle.getReadingType().name() : "SOLES",
+            nozzle.getHasSolesCounter() != null && nozzle.getHasSolesCounter() ? "ON" : "OFF",
+            nozzle.getSolesTotalDigits() != null ? nozzle.getSolesTotalDigits() : 6,
+            nozzle.getSolesDecimals() != null ? nozzle.getSolesDecimals() : 2,
+            nozzle.getHasGallonsCounter() != null && nozzle.getHasGallonsCounter() ? "ON" : "OFF",
+            nozzle.getGallonsTotalDigits() != null ? nozzle.getGallonsTotalDigits() : 6,
+            nozzle.getGallonsDecimals() != null ? nozzle.getGallonsDecimals() : 3,
+            nozzle.getHasLitersCounter() != null && nozzle.getHasLitersCounter() ? "ON" : "OFF",
+            nozzle.getLitersTotalDigits() != null ? nozzle.getLitersTotalDigits() : 6,
+            nozzle.getLitersDecimals() != null ? nozzle.getLitersDecimals() : 2,
+            nozzle.getHasClockCounter() != null && nozzle.getHasClockCounter() ? "ON" : "OFF",
+            nozzle.getClockTotalDigits() != null ? nozzle.getClockTotalDigits() : 8,
+            nozzle.getClockDecimals() != null ? nozzle.getClockDecimals() : 0
+        );
+    }
+
+    private NozzleDTO.CounterConfigResponse toCounterConfigResponse(Nozzle nozzle) {
+        return new NozzleDTO.CounterConfigResponse(
+            nozzle.getId(),
+            nozzle.getReadingType() != null ? nozzle.getReadingType().name() : "SOLES",
+            new NozzleDTO.CounterConfig(
+                nozzle.getHasSolesCounter() != null ? nozzle.getHasSolesCounter() : true,
+                nozzle.getSolesTotalDigits() != null ? nozzle.getSolesTotalDigits() : 6,
+                nozzle.getSolesDecimals() != null ? nozzle.getSolesDecimals() : 2
+            ),
+            new NozzleDTO.CounterConfig(
+                nozzle.getHasGallonsCounter() != null ? nozzle.getHasGallonsCounter() : true,
+                nozzle.getGallonsTotalDigits() != null ? nozzle.getGallonsTotalDigits() : 6,
+                nozzle.getGallonsDecimals() != null ? nozzle.getGallonsDecimals() : 3
+            ),
+            new NozzleDTO.CounterConfig(
+                nozzle.getHasLitersCounter() != null ? nozzle.getHasLitersCounter() : false,
+                nozzle.getLitersTotalDigits() != null ? nozzle.getLitersTotalDigits() : 6,
+                nozzle.getLitersDecimals() != null ? nozzle.getLitersDecimals() : 2
+            ),
+            new NozzleDTO.CounterConfig(
+                nozzle.getHasClockCounter() != null ? nozzle.getHasClockCounter() : false,
+                nozzle.getClockTotalDigits() != null ? nozzle.getClockTotalDigits() : 8,
+                nozzle.getClockDecimals() != null ? nozzle.getClockDecimals() : 0
+            ),
+            nozzle.getUpdatedAt()
+        );
+    }
+
+    private NozzleDTO.NozzleWithConfigResponse toNozzleWithConfigResponse(Nozzle nozzle) {
+        return new NozzleDTO.NozzleWithConfigResponse(
+            nozzle.getId(),
+            nozzle.getPump().getId(),
+            nozzle.getPump().getName(),
+            nozzle.getPump().getIsland().getId(),
+            nozzle.getPump().getIsland().getName(),
+            nozzle.getSide().name(),
+            nozzle.getPosition(),
+            nozzle.getFuelType().name(),
+            nozzle.getFuelName(),
+            nozzle.getColor(),
+            nozzle.getActive(),
+            nozzle.getReadingType() != null ? nozzle.getReadingType().name() : "SOLES",
+            new NozzleDTO.CounterConfig(
+                nozzle.getHasSolesCounter() != null ? nozzle.getHasSolesCounter() : true,
+                nozzle.getSolesTotalDigits() != null ? nozzle.getSolesTotalDigits() : 6,
+                nozzle.getSolesDecimals() != null ? nozzle.getSolesDecimals() : 2
+            ),
+            new NozzleDTO.CounterConfig(
+                nozzle.getHasGallonsCounter() != null ? nozzle.getHasGallonsCounter() : true,
+                nozzle.getGallonsTotalDigits() != null ? nozzle.getGallonsTotalDigits() : 6,
+                nozzle.getGallonsDecimals() != null ? nozzle.getGallonsDecimals() : 3
+            ),
+            new NozzleDTO.CounterConfig(
+                nozzle.getHasLitersCounter() != null ? nozzle.getHasLitersCounter() : false,
+                nozzle.getLitersTotalDigits() != null ? nozzle.getLitersTotalDigits() : 6,
+                nozzle.getLitersDecimals() != null ? nozzle.getLitersDecimals() : 2
+            ),
+            new NozzleDTO.CounterConfig(
+                nozzle.getHasClockCounter() != null ? nozzle.getHasClockCounter() : false,
+                nozzle.getClockTotalDigits() != null ? nozzle.getClockTotalDigits() : 8,
+                nozzle.getClockDecimals() != null ? nozzle.getClockDecimals() : 0
+            ),
+            nozzle.getCreatedAt(),
+            nozzle.getUpdatedAt()
+        );
+    }
+
     // ==================== HELPERS ====================
 
     private void recordConfigurationChange(Nozzle nozzle,

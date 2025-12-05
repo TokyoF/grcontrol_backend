@@ -45,7 +45,9 @@ public class UserController {
     ) {
         // Normalizar el rol (agregar ROLE_ si no lo tiene)
         String normalizedRole = role.startsWith("ROLE_") ? role : "ROLE_" + role;
+        System.out.println("Buscando usuarios con rol: " + normalizedRole);
         List<UserDTO.UserResponse> users = userService.getUsersByRole(normalizedRole);
+        System.out.println("Usuarios encontrados: " + users.size());
         return ResponseEntity.ok(users);
     }
 
