@@ -245,7 +245,7 @@ public class ShiftService {
     // ==================== QUERY METHODS ====================
 
     @Transactional(readOnly = true)
-    public List<ShiftDTO.SessionResponse> getShifts(Long stationId, Long operatorId, String status, String startDate, String endDate) {
+    public List<ShiftDTO.SessionDetailResponse> getShifts(Long stationId, Long operatorId, String status, String startDate, String endDate) {
         List<ShiftSession> sessions;
         
         if (stationId != null || operatorId != null || status != null) {
@@ -256,19 +256,25 @@ public class ShiftService {
                 .filter(s -> status == null || s.getStatus().name().equals(status))
                 .filter(s -> startDate == null || s.getStartTime().toLocalDate().toString().compareTo(startDate) >= 0)
                 .filter(s -> endDate == null || s.getStartTime().toLocalDate().toString().compareTo(endDate) <= 0)
+                // Excluir sesiones de inicialización (shiftTime = "INIT")
+                .filter(s -> !"INIT".equals(s.getShiftTime()))
                 .toList();
         } else {
-            sessions = sessionRepository.findAll();
+            sessions = sessionRepository.findAll().stream()
+                // Excluir sesiones de inicialización
+                .filter(s -> !"INIT".equals(s.getShiftTime()))
+                .toList();
         }
         
-        return sessions.stream().map(this::toSessionResponse).toList();
+        return sessions.stream().map(this::toSessionDetailResponse).toList();
     }
 
     @Transactional(readOnly = true)
-    public ShiftDTO.SessionResponse getShiftById(Long id) {
+    public ShiftDTO.SessionDetailResponse getShiftById(Long id) {
         ShiftSession session = sessionRepository.findById(id)
             .orElseThrow(() -> new IllegalArgumentException("Session not found: " + id));
-        return toSessionResponse(session);
+        
+        return toSessionDetailResponse(session);
     }
 
     @Transactional
@@ -316,7 +322,7 @@ public class ShiftService {
     }
 
     @Transactional(readOnly = true)
-    public List<ShiftDTO.SessionResponse> getShiftsByStation(Long stationId, String startDate, String endDate) {
+    public List<ShiftDTO.SessionDetailResponse> getShiftsByStation(Long stationId, String startDate, String endDate) {
         return getShifts(stationId, null, null, startDate, endDate);
     }
 
@@ -405,6 +411,44 @@ public class ShiftService {
             .toList();
     }
 
+    // ==================== UPDATE SHIFT (FROM HISTORY) ====================
+
+    /**
+     * ✨ Actualizar un turno completo (para editar desde historial)
+     * NOTA: Por ahora solo permite recalcular totales
+     * TODO: Implementar actualización completa de lecturas/movimientos/arqueo
+     */
+    @Transactional
+    public ShiftDTO.SessionResponse updateShift(Long id, ShiftDTO.UpdateShiftRequest request) {
+        // Buscar el turno
+        ShiftSession session = sessionRepository.findById(id)
+            .orElseThrow(() -> new IllegalArgumentException("Shift not found with id: " + id));
+
+        // SEGURIDAD: Validar que el turno no sea muy antiguo (ej. más de 30 días)
+        java.time.LocalDateTime thirtyDaysAgo = java.time.LocalDateTime.now().minusDays(30);
+        if (session.getStartTime().isBefore(thirtyDaysAgo)) {
+            throw new SecurityException("Cannot edit shifts older than 30 days");
+        }
+
+        // Actualizar fecha de cierre si se envió
+        if (request.endTime() != null) {
+            session.setEndTime(request.endTime());
+        }
+
+        // Recalcular total de ventas (suma de lecturas SOLES)
+        List<PumpReading> readings = readingRepository.findBySessionId(session.getId());
+        Double totalSales = readings.stream()
+            .filter(r -> r.getReadingType() == PumpReading.ReadingType.SOLES)
+            .mapToDouble(PumpReading::getDifference)
+            .sum();
+        session.setTotalSales(totalSales);
+
+        // Guardar sesión actualizada
+        session = sessionRepository.save(session);
+
+        return toSessionResponse(session);
+    }
+
     // ==================== HELPERS ====================
 
     private ShiftDTO.SessionResponse toSessionResponse(ShiftSession session) {
@@ -422,6 +466,80 @@ public class ShiftService {
             session.getReadings().size(),
             session.getMovements().size(),
             session.getCreatedAt()
+        );
+    }
+
+    private ShiftDTO.SessionDetailResponse toSessionDetailResponse(ShiftSession session) {
+        // Convertir readings
+        List<ShiftDTO.ReadingResponse> readings = session.getReadings().stream()
+            .map(r -> new ShiftDTO.ReadingResponse(
+                r.getId(),
+                r.getIslandName(),
+                r.getPumpName(),
+                r.getSide() != null ? r.getSide().name() : null,
+                r.getNozzleIndex(),
+                r.getFuelName(),
+                r.getReadingType() != null ? r.getReadingType().name() : null,
+                r.getEntryDigits(),
+                r.getExitDigits(),
+                r.getDifference(),
+                r.getCompleted(),
+                r.getReadingTimestamp()
+            ))
+            .toList();
+
+        // Convertir movements
+        List<ShiftDTO.MovementResponse> movements = session.getMovements().stream()
+            .map(m -> new ShiftDTO.MovementResponse(
+                m.getId(),
+                m.getPaymentMethod() != null ? m.getPaymentMethod().name() : null,
+                m.getAmount(),
+                m.getDescription(),
+                m.getMovementTimestamp(),
+                m.getVisaWorkerName(),
+                m.getVehicleType(),
+                m.getVehicleBrand(),
+                m.getVehiclePlate(),
+                m.getVehicleColor()
+            ))
+            .toList();
+
+        // Convertir arqueo (si existe)
+        ShiftDTO.ArqueoResponse arqueoResponse = null;
+        if (session.getArqueo() != null) {
+            Arqueo a = session.getArqueo();
+            arqueoResponse = new ShiftDTO.ArqueoResponse(
+                a.getId(),
+                a.getEfectivo(),
+                a.getTarjetaCredito(),
+                a.getTarjetaDebito(),
+                a.getValeInterno(),
+                a.getDeposito(),
+                a.getTotalCash(),
+                a.getTotalSales(),
+                a.getDifference(),
+                a.getStatus() != null ? a.getStatus().name() : null,
+                a.getNotes(),
+                a.getArqueoTimestamp()
+            );
+        }
+
+        return new ShiftDTO.SessionDetailResponse(
+            session.getId(),
+            session.getSessionId(),
+            session.getOperator().getFirstName() + " " + session.getOperator().getLastName(),
+            session.getShiftTime(),
+            session.getStartTime(),
+            session.getEndTime(),
+            session.getStatus().name(),
+            session.getTotalSales(),
+            session.getStationId(),
+            session.getStationName(),
+            readings,
+            movements,
+            arqueoResponse,
+            session.getCreatedAt(),
+            session.getUpdatedAt()
         );
     }
 }

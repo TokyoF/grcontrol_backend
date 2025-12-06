@@ -158,4 +158,78 @@ public class ShiftDTO {
         Integer totalTransactions,
         Double averageSales
     ) {}
+
+    // ✨ NEW: Request para actualizar turno completo (desde historial)
+    public record UpdateShiftRequest(
+        List<ReadingRequest> readings,
+        List<MovementRequest> movements,
+        ArqueoRequest arqueo,
+        LocalDateTime endTime,
+        String notes
+    ) {}
+
+    // ✨ NEW: Response con detalles completos del turno (incluye readings, movements, arqueo)
+    public record SessionDetailResponse(
+        Long id,
+        String sessionId,
+        String operatorName,
+        String shiftTime,
+        LocalDateTime startTime,
+        LocalDateTime endTime,
+        String status,
+        Double totalSales,
+        Integer stationId,
+        String stationName,
+        List<ReadingResponse> readings,
+        List<MovementResponse> movements,
+        ArqueoResponse arqueo,
+        LocalDateTime createdAt,
+        LocalDateTime updatedAt
+    ) {}
+
+    // Response para lecturas individuales
+    public record ReadingResponse(
+        Long id,
+        String islandName,
+        String pumpName,
+        String side,
+        Integer nozzleIndex,
+        String fuelName,
+        String readingType,
+        String entryDigits,
+        String exitDigits,
+        Double difference,
+        Boolean completed,
+        LocalDateTime readingTimestamp
+    ) {}
+
+    // Response para movimientos individuales
+    public record MovementResponse(
+        Long id,
+        String paymentMethod,
+        Double amount,
+        String description,
+        LocalDateTime timestamp,
+        String visaWorkerName,
+        String vehicleType,
+        String vehicleBrand,
+        String vehiclePlate,
+        String vehicleColor
+    ) {}
+
+    // Response para arqueo
+    public record ArqueoResponse(
+        Long id,
+        Double efectivo,
+        Double tarjetaCredito,
+        Double tarjetaDebito,
+        Double valeInterno,
+        Double deposito,
+        Double totalCash,
+        Double totalSales,
+        Double difference,
+        String status,
+        String notes,
+        LocalDateTime timestamp
+    ) {}
 }

@@ -101,6 +101,9 @@ public class ShiftSession {
     )
     private List<Movement> movements = new ArrayList<>();
 
+    @OneToOne(mappedBy = "session", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Arqueo arqueo;
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 

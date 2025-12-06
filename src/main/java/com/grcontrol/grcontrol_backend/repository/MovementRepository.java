@@ -3,6 +3,7 @@ package com.grcontrol.grcontrol_backend.repository;
 import com.grcontrol.grcontrol_backend.entity.Movement;
 import com.grcontrol.grcontrol_backend.entity.ShiftSession;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -37,4 +38,9 @@ public interface MovementRepository extends JpaRepository<Movement, Long> {
     // Nuevos métodos para MovementController
     @Query("SELECT m FROM Movement m WHERE m.session.id = :sessionId ORDER BY m.movementTimestamp DESC")
     List<Movement> findBySessionId(@Param("sessionId") Long sessionId);
+
+    // ✨ NEW: Para eliminar movimientos al editar turno desde historial
+    @Modifying
+    @Query("DELETE FROM Movement m WHERE m.session.sessionId = :sessionId")
+    void deleteBySessionId(@Param("sessionId") String sessionId);
 }

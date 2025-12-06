@@ -3,6 +3,7 @@ package com.grcontrol.grcontrol_backend.repository;
 import com.grcontrol.grcontrol_backend.entity.PumpReading;
 import com.grcontrol.grcontrol_backend.entity.ShiftSession;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -53,4 +54,9 @@ public interface PumpReadingRepository extends JpaRepository<PumpReading, Long> 
         @Param("nozzleId") Long nozzleId,
         @Param("readingType") PumpReading.ReadingType readingType
     );
+
+    // ✨ NEW: Para eliminar lecturas al editar turno desde historial
+    @Modifying
+    @Query("DELETE FROM PumpReading r WHERE r.session.sessionId = :sessionId")
+    void deleteBySessionId(@Param("sessionId") String sessionId);
 }

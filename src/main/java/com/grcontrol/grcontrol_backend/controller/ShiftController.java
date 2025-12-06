@@ -243,4 +243,24 @@ public class ShiftController {
             return ResponseEntity.badRequest().body("Error: " + e.getMessage());
         }
     }
+
+    /**
+     * PUT /api/shifts/by-id/{id}
+     * Actualizar un turno completo (para editar desde historial)
+     * Permite al grifero corregir lecturas de turnos ya completados
+     */
+    @PutMapping("/by-id/{id}")
+    public ResponseEntity<?> updateShift(
+        @PathVariable Long id,
+        @RequestBody ShiftDTO.UpdateShiftRequest request
+    ) {
+        try {
+            var updatedShift = shiftService.updateShift(id, request);
+            return ResponseEntity.ok(updatedShift);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body("Error: " + e.getMessage());
+        } catch (SecurityException e) {
+            return ResponseEntity.status(403).body("Error: " + e.getMessage());
+        }
+    }
 }
